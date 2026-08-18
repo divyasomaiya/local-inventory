@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLICKWORTHY BY DTC - Inventory Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Barcode & QR Code Scanner SDK -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <!-- OCR Engine for Product Text Tags -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <script>
+        // Global Application State Object
+        window.appState = {
+            products: [],
+            logs: [],
+            currentUser: null,
+            firestoreReady: false
+        };
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-800 antialiased pb-20 md:pb-6">
+
+    <!-- Top Header Navigation -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-lg tracking-wider shadow-sm">
+                    C
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 leading-none text-base sm:text-lg tracking-tight">CLICKWORTHY BY DTC</h1>
+                    <p class="text-xs font-mono text-slate-500 mt-0.5">inventory.clickworthybydtc.com</p>
+                </div>
+            </div>
+
+            <!-- Desktop Navigation Tabs -->
+            <nav class="hidden md:flex items-center space-x-1 bg-slate-100 p-1 rounded-xl">
+                <button onclick="switchTab('inventory')" id="nav-btn-inventory" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white text-slate-900">
+                    <i class="fa-solid fa-boxes-stacked mr-2 text-slate-500"></i>Inventory
+                </button>
+                <button onclick="switchTab('activity')" id="nav-btn-activity" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all">
+                    <i class="fa-solid fa-clock-rotate-left mr-2 text-slate-400"></i>Activity Log
+                </button>
+                <button onclick="switchTab('archived')" id="nav-btn-archived" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all">
+                    <i class="fa-solid fa-box-archive mr-2 text-slate-400"></i>Archived
+                </button>
+            </nav>
+
+            <!-- Quick Action Header Buttons -->
+            <div class="flex items-center space-x-2">
+                <button onclick="openScannerModal()" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm px-3.5 py-2 rounded-lg transition-colors shadow-sm active:scale-95">
+                    <i class="fa-solid fa-camera text-xs mr-1.5"></i>
+                    <span class="hidden sm:inline">Scan Tag/Code</span>
+                    <span class="sm:hidden">Scan</span>
+                </button>
+                <button onclick="exportToExcel()" class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-3.5 py-2 rounded-lg transition-colors shadow-sm active:scale-95">
+                    <i class="fa-solid fa-file-excel text-xs mr-1.5"></i>
+                    <span class="hidden sm:inline">Export Excel</span>
+                    <span class="sm:hidden">Excel</span>
+                </button>
+                <button onclick="openBackupModal()" class="inline-flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm px-3.5 py-2 rounded-lg transition-colors border border-slate-200">
+                    <i class="fa-solid fa-database text-xs mr-1.5 text-slate-500"></i>
+                    <span class="hidden sm:inline">Backup</span>
+                </button>
+                <button onclick="openCreateProductModal()" class="inline-flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white font-medium text-sm px-3.5 py-2 rounded-lg transition-colors shadow-sm active:scale-95">
+                    <i class="fa-solid fa-plus text-xs mr-1.5"></i>
+                    <span>Add Product</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-16 right-4 z-50 flex flex-col space-y-2 max-w-sm w-full pointer-events-none px-4"></div>
+
+    <!-- Main Container -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-8 flex-1 w-full">
+
+        <!-- Quick Stats Overview -->
+        <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Items</p>
+                <p id="stat-total-products" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">0</p>
+            </div>
+            <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Units</p>
+                <p id="stat-total-units" class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-1">0</p>
+            </div>
+            <div class="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Low / Out Stock</p>
+                <p id="stat-low-stock" class="text-xl sm:text-2xl font-extrabold text-amber-600 mt-1">0</p>
+            </div>
+        </div>
+
+        <!-- TAB 1: INVENTORY VIEW -->
+        <section id="tab-inventory" class="tab-content space-y-4">
+            
+            <!-- Search & Filter Bar -->
+            <div class="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                <div class="relative w-full flex items-center gap-2">
+                    <div class="relative w-full">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="inventory-search" placeholder="Search by Product Code, Name or Barcode..." 
+                            oninput="window.renderInventory()" 
+                            class="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all">
+                        <button onclick="clearSearch()" id="clear-search-btn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+                    </div>
+                    <button onclick="openScannerModal()" title="Scan Barcode or Product Tag" class="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1.5 shadow-xs">
+                        <i class="fa-solid fa-barcode text-base"></i>
+                        <span class="hidden sm:inline text-xs font-semibold">Scan</span>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-2 w-full sm:w-auto shrink-0 justify-end">
+                    <span class="text-xs font-medium text-slate-500 whitespace-nowrap" id="product-count-label">0 products</span>
+                </div>
+            </div>
+
+            <!-- Products List Container -->
+            <div id="products-list-container" class="space-y-3">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="inventory-empty-state" class="hidden text-center py-12 px-4 bg-white rounded-xl border border-dashed border-slate-300">
+                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <i class="fa-solid fa-box-open text-xl"></i>
+                </div>
+                <h3 class="text-base font-semibold text-slate-800">No products found</h3>
+                <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto" id="empty-state-msg">No products match your search query or none have been created yet.</p>
+                <button onclick="openCreateProductModal()" class="mt-4 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors">
+                    + Create First Product
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 2: GLOBAL ACTIVITY LOG VIEW -->
+        <section id="tab-activity" class="tab-content hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900">Global Activity Log</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Permanent history of all stock movements and archive actions across all products.</p>
+                </div>
+                <div class="relative w-full sm:w-64">
+                    <i class="fa-solid fa-filter absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="activity-search" placeholder="Filter log by code, name or 'archived'..." 
+                        oninput="window.renderGlobalActivityLog()" 
+                        class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                </div>
+            </div>
+
+            <!-- Activity List -->
+            <div id="global-activity-container" class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Empty Activity State -->
+            <div id="activity-empty-state" class="hidden text-center py-12 px-4 bg-white rounded-xl border border-dashed border-slate-300">
+                <i class="fa-solid fa-clock-rotate-left text-2xl text-slate-300 mb-2"></i>
+                <p class="text-sm text-slate-500">No stock activity logged yet.</p>
+            </div>
+        </section>
+
+        <!-- TAB 3: ARCHIVED PRODUCTS VIEW -->
+        <section id="tab-archived" class="tab-content hidden space-y-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                <h2 class="text-base font-bold text-slate-900">Archived Products</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Products hidden from active inventory. Historical logs remain completely preserved.</p>
+            </div>
+
+            <div id="archived-list-container" class="space-y-3">
+                <!-- Dynamically populated -->
+            </div>
+
+            <div id="archived-empty-state" class="hidden text-center py-10 px-4 bg-white rounded-xl border border-dashed border-slate-300">
+                <p class="text-sm text-slate-500">No archived products found.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-30 px-2 py-1.5 flex justify-around items-center shadow-lg">
+        <button onclick="switchTab('inventory')" id="mobile-nav-inventory" class="flex flex-col items-center py-1 px-3 text-slate-900 font-semibold">
+            <i class="fa-solid fa-boxes-stacked text-base mb-0.5"></i>
+            <span class="text-[10px]">Inventory</span>
+        </button>
+        <button onclick="switchTab('activity')" id="mobile-nav-activity" class="flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700">
+            <i class="fa-solid fa-clock-rotate-left text-base mb-0.5"></i>
+            <span class="text-[10px]">Activity</span>
+        </button>
+        <button onclick="switchTab('archived')" id="mobile-nav-archived" class="flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700">
+            <i class="fa-solid fa-box-archive text-base mb-0.5"></i>
+            <span class="text-[10px]">Archived</span>
+        </button>
+    </div>
+
+    <!-- MODAL 1: CREATE PRODUCT MODAL -->
+    <div id="modal-create-product" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-box text-sm"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900">Create New Product</h3>
+                </div>
+                <button onclick="closeModal('modal-create-product')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleCreateProduct(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Code <span class="text-rose-500">*</span></label>
+                    <input type="text" id="create-code" placeholder="e.g. BAT-001, CAM-001, CABLE-005" required
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono uppercase focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white">
+                    <p class="text-[11px] text-slate-500 mt-1">Must be unique across all products.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Name <span class="text-rose-500">*</span></label>
+                    <input type="text" id="create-name" placeholder="e.g. Sony NP-FZ100 Battery" required
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Barcode / Tag Code (Optional)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="create-barcode" placeholder="e.g. 8901234567890"
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white">
+                        <button type="button" onclick="openScannerForInput('create-barcode')" class="shrink-0 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg border border-slate-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-barcode"></i>
+                            <span>Scan</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Initial Stock Quantity <span class="text-rose-500">*</span></label>
+                    <input type="number" id="create-stock" min="0" value="0" required
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white">
+                    <p class="text-[11px] text-slate-500 mt-1">Initial quantity will be logged in the activity history.</p>
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modal-create-product')" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors">
+                        Save Product
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ADD STOCK MODAL -->
+    <div id="modal-add-stock" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-plus text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Add Stock</h3>
+                        <p id="add-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-add-stock')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleAddStockSubmit(event)" class="space-y-4">
+                <input type="hidden" id="add-stock-product-id">
+
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 flex justify-between items-center">
+                    <span class="text-xs font-semibold text-slate-600 uppercase">Current Stock:</span>
+                    <span id="add-modal-current-stock" class="text-base font-bold text-slate-900">0</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Quantity to Add <span class="text-rose-500">*</span></label>
+                    <input type="number" id="add-stock-qty" min="1" step="1" placeholder="e.g. 5" required oninput="calculateAddStockPreview()"
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-lg font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:bg-white">
+                </div>
+
+                <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-emerald-900 flex justify-between items-center">
+                    <span class="text-xs font-semibold uppercase">New Stock Preview:</span>
+                    <span id="add-modal-new-stock" class="text-lg font-extrabold text-emerald-700">0</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Reason / Note (Optional)</label>
+                    <div class="flex flex-wrap gap-1.5 mb-2">
+                        <button type="button" onclick="setAddReason('New purchase')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">New purchase</button>
+                        <button type="button" onclick="setAddReason('Returned items')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Returned items</button>
+                        <button type="button" onclick="setAddReason('Stock correction')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Stock correction</button>
+                        <button type="button" onclick="setAddReason('Existing stock discovered')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Discovered</button>
+                    </div>
+                    <input type="text" id="add-stock-reason" placeholder="e.g. Purchased from vendor"
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modal-add-stock')" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors">
+                        Confirm + Add Stock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: DEDUCT STOCK MODAL -->
+    <div id="modal-deduct-stock" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-minus text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Deduct Stock</h3>
+                        <p id="deduct-modal-subtitle" class="text-xs text-slate-500 font-mono"></p>
+                    </div>
+                </div>
+                <button onclick="closeModal('modal-deduct-stock')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleDeductStockSubmit(event)" class="space-y-4">
+                <input type="hidden" id="deduct-stock-product-id">
+
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 flex justify-between items-center">
+                    <span class="text-xs font-semibold text-slate-600 uppercase">Current Stock:</span>
+                    <span id="deduct-modal-current-stock" class="text-base font-bold text-slate-900">0</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Quantity to Deduct <span class="text-rose-500">*</span></label>
+                    <input type="number" id="deduct-stock-qty" min="1" step="1" placeholder="e.g. 2" required oninput="calculateDeductStockPreview()"
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-lg font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:bg-white">
+                </div>
+
+                <!-- Negative Stock Warning Alert Container -->
+                <div id="deduct-warning-msg" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start space-x-2.5 text-rose-800 text-xs font-medium">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-600 text-sm mt-0.5 shrink-0"></i>
+                    <span id="deduct-warning-text">Cannot deduct units. Exceeds current available stock.</span>
+                </div>
+
+                <div id="deduct-modal-preview-box" class="bg-slate-100 border border-slate-200 p-3 rounded-lg text-slate-800 flex justify-between items-center">
+                    <span class="text-xs font-semibold uppercase">New Stock Preview:</span>
+                    <span id="deduct-modal-new-stock" class="text-lg font-extrabold text-slate-900">0</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Reason / Note (Optional)</label>
+                    <div class="flex flex-wrap gap-1.5 mb-2">
+                        <button type="button" onclick="setDeductReason('Issued for shoot')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Issued for shoot</button>
+                        <button type="button" onclick="setDeductReason('Used')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Used</button>
+                        <button type="button" onclick="setDeductReason('Damaged')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Damaged</button>
+                        <button type="button" onclick="setDeductReason('Lost')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-md transition-colors">Lost</button>
+                    </div>
+                    <input type="text" id="deduct-stock-reason" placeholder="e.g. Issued to crew member"
+                        class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modal-deduct-stock')" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                        Cancel
+                    </button>
+                    <button type="submit" id="deduct-submit-btn" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg shadow-xs transition-colors">
+                        Confirm − Deduct Stock
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: PRODUCT DETAIL MODAL -->
+    <div id="modal-product-detail" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+            <div class="p-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between">
+                <div class="space-y-1 pr-4">
+                    <div class="flex items-center space-x-2">
+                        <span id="detail-code-badge" class="font-mono text-xs font-bold bg-slate-900 text-white px-2.5 py-1 rounded-md tracking-wider"></span>
+                        <span id="detail-status-badge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">In Stock</span>
+                    </div>
+                    <h2 id="detail-product-name" class="text-xl font-bold text-slate-900"></h2>
+                </div>
+                <button onclick="closeModal('modal-product-detail')" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg bg-white border border-slate-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-6 flex-1">
+                <div class="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between shadow-xs">
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Current Available Stock</p>
+                        <p id="detail-current-stock" class="text-3xl font-extrabold mt-0.5">0</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="detail-btn-add" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fa-solid fa-plus mr-1.5"></i> Add
+                        </button>
+                        <button id="detail-btn-deduct" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fa-solid fa-minus mr-1.5"></i> Deduct
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                    <button id="detail-btn-edit" class="text-xs font-semibold text-slate-700 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 px-3 py-1.5 rounded-lg transition-colors flex items-center">
+                        <i class="fa-solid fa-pen-to-square mr-1.5 text-slate-400"></i> Edit Details
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <button id="detail-btn-archive" class="text-xs font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors flex items-center">
+                            <i class="fa-solid fa-box-archive mr-1.5"></i> Archive Product
+                        </button>
+                        <button id="detail-btn-delete" class="text-xs font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors flex items-center">
+                            <i class="fa-solid fa-trash mr-1.5"></i> Delete
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center justify-between">
+                        <span>Stock Movement History</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Immutable Ledger</span>
+                    </h3>
+                    <div id="detail-activity-list" class="space-y-2 border-l-2 border-slate-200 pl-4 py-1">
+                        <!-- Dynamically populated activity logs -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: EDIT PRODUCT MODAL -->
+    <div id="modal-edit-product" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <h3 class="text-base font-bold text-slate-900">Edit Product Information</h3>
+                <button onclick="closeModal('modal-edit-product')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleEditProductSubmit(event)" class="space-y-4">
+                <input type="hidden" id="edit-product-id">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Code <span class="text-rose-500">*</span></label>
+                    <input type="text" id="edit-code" required
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono uppercase focus:outline-none focus:ring-2 focus:ring-slate-900">
+                    <p class="text-[11px] text-slate-500 mt-1">Changing code preserves all stock movement history.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Product Name <span class="text-rose-500">*</span></label>
+                    <input type="text" id="edit-name" required
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">Barcode / Tag Code (Optional)</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="edit-barcode" placeholder="e.g. 8901234567890"
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-slate-900">
+                        <button type="button" onclick="openScannerForInput('edit-barcode')" class="shrink-0 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-lg border border-slate-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-barcode"></i>
+                            <span>Scan</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('modal-edit-product')" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg shadow-xs">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 6: CONFIRM ARCHIVE MODAL -->
+    <div id="modal-confirm-archive" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-lg shrink-0">
+                    <i class="fa-solid fa-box-archive"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Archive Product?</h3>
+                    <p class="text-xs text-slate-500">Historical activity logs remain intact.</p>
+                </div>
+            </div>
+            <p id="archive-confirm-text" class="text-sm text-slate-700 mb-5 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200"></p>
+            <div class="flex items-center justify-end space-x-2">
+                <button type="button" onclick="closeModal('modal-confirm-archive')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                    Cancel
+                </button>
+                <button type="button" onclick="confirmArchiveProduct()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg shadow-xs">
+                    Archive Product
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 9: CONFIRM DELETE MODAL -->
+    <div id="modal-confirm-delete" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-lg shrink-0">
+                    <i class="fa-solid fa-trash"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Delete Product Permanently?</h3>
+                    <p class="text-xs text-rose-600 font-medium">This action cannot be undone.</p>
+                </div>
+            </div>
+            <p id="delete-confirm-text" class="text-sm text-slate-700 mb-5 leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-200"></p>
+            <div class="flex items-center justify-end space-x-2">
+                <button type="button" onclick="closeModal('modal-confirm-delete')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                    Cancel
+                </button>
+                <button type="button" onclick="confirmDeleteProduct()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold rounded-lg shadow-xs">
+                    Permanently Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 7: BACKUP & RESTORE MODAL -->
+    <div id="modal-backup" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-database text-sm"></i>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-900">Data Backup & Restore</h3>
+                </div>
+                <button onclick="closeModal('modal-backup')" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Export Section -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Export Backup File</h4>
+                            <p class="text-xs text-slate-500 mt-0.5">Download current inventory & activity logs as a `.db` backup file.</p>
+                            <p class="text-[11px] text-slate-500 font-mono mt-1.5" id="backup-filename-preview"></p>
+                        </div>
+                    </div>
+                    <button onclick="exportBackup()" class="mt-3 w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Download Backup (.db)</span>
+                    </button>
+                </div>
+
+                <!-- Import Section -->
+                <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <h4 class="text-sm font-bold text-slate-900">Import Backup File</h4>
+                    <p class="text-xs text-slate-500 mt-0.5 mb-3">Upload a previously saved `.db` file to restore full inventory state.</p>
+                    <label class="w-full py-2.5 bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-file-import text-slate-500"></i>
+                        <span>Select .db Backup File</span>
+                        <input type="file" id="backup-file-input" accept=".db,.json" onchange="importBackup(event)" class="hidden">
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex justify-end">
+                <button type="button" onclick="closeModal('modal-backup')" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 8: BARCODE & PRODUCT TAG SCANNER MODAL -->
+    <div id="modal-scanner" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-100 max-h-[92vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-camera text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Product & Barcode Scanner</h3>
+                        <p class="text-xs text-slate-500">Scan physical tag, barcode or QR code</p>
+                    </div>
+                </div>
+                <button onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Mode Selector Tabs -->
+            <div class="flex bg-slate-100 p-1 rounded-xl mb-3 shrink-0 text-xs font-semibold">
+                <button id="scan-tab-camera" onclick="switchScannerTab('camera')" class="flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-2xs transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-barcode"></i>
+                    <span>Barcode / QR</span>
+                </button>
+                <button id="scan-tab-tag" onclick="switchScannerTab('tag')" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span>Product Tag OCR</span>
+                </button>
+                <button id="scan-tab-upload" onclick="switchScannerTab('upload')" class="flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>Photo Upload</span>
+                </button>
+            </div>
+
+            <!-- Scanner Views Container -->
+            <div class="flex-1 overflow-y-auto space-y-3">
+                
+                <!-- 1. Live Camera Barcode View -->
+                <div id="scanner-view-camera" class="space-y-3">
+                    <div class="relative bg-slate-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center border border-slate-800 shadow-inner">
+                        <div id="qr-reader" class="w-full h-full"></div>
+                        <div id="scanner-status-overlay" class="absolute inset-0 bg-slate-900/80 text-white flex flex-col items-center justify-center p-4 text-center">
+                            <i class="fa-solid fa-video text-2xl mb-2 text-indigo-400 animate-pulse"></i>
+                            <p class="text-xs font-medium">Click Start Camera to align barcode or QR code inside frame</p>
+                            <button onclick="startCameraScanner()" class="mt-3 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs">
+                                Start Camera
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Tag OCR View -->
+                <div id="scanner-view-tag" class="hidden space-y-3">
+                    <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                        <p class="text-xs text-indigo-900 font-semibold">Scan Printed Product Tag</p>
+                        <p class="text-[11px] text-indigo-700 mt-0.5">Take or upload a photo of product tags containing code (e.g. BAT-001) or name.</p>
+                    </div>
+                    <label class="block w-full p-6 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-xl text-center cursor-pointer transition-colors">
+                        <i class="fa-solid fa-camera-retro text-2xl text-slate-400 mb-2"></i>
+                        <span class="block text-xs font-semibold text-slate-700">Capture Tag / Upload Image</span>
+                        <span class="block text-[11px] text-slate-400 mt-0.5">Extracts code & product text automatically</span>
+                        <input type="file" accept="image/*" capture="environment" onchange="processTagOCR(event)" class="hidden">
+                    </label>
+                    <div id="ocr-loading" class="hidden text-center py-4 space-y-2">
+                        <i class="fa-solid fa-spinner fa-spin text-xl text-indigo-600"></i>
+                        <p class="text-xs text-slate-600 font-medium">Reading product tag text...</p>
+                    </div>
+                </div>
+
+                <!-- 3. Photo Upload View -->
+                <div id="scanner-view-upload" class="hidden space-y-3">
+                    <label class="block w-full p-6 bg-slate-50 border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-xl text-center cursor-pointer transition-colors">
+                        <i class="fa-solid fa-file-image text-2xl text-slate-400 mb-2"></i>
+                        <span class="block text-xs font-semibold text-slate-700">Select Image File</span>
+                        <span class="block text-[11px] text-slate-400 mt-0.5">Scans barcode or QR code from image</span>
+                        <input type="file" accept="image/*" onchange="processImageBarcode(event)" class="hidden">
+                    </label>
+                </div>
+
+                <!-- Scanned Result Match Card -->
+                <div id="scan-result-card" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Scanned Value</span>
+                        <span class="font-mono text-xs font-bold bg-slate-200 text-slate-800 px-2 py-0.5 rounded" id="scan-raw-text"></span>
+                    </div>
+
+                    <div id="scan-product-found" class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="font-mono text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded" id="scan-prod-code"></span>
+                                <h4 class="font-bold text-slate-900 text-base mt-1" id="scan-prod-name"></h4>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Current Stock</span>
+                                <span class="text-2xl font-extrabold text-slate-900" id="scan-prod-stock">0</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
+                            <button id="scan-act-add" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center justify-center space-x-1.5">
+                                <i class="fa-solid fa-plus text-xs"></i>
+                                <span>+ ADD STOCK</span>
+                            </button>
+                            <button id="scan-act-deduct" class="py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-xs flex items-center justify-center space-x-1.5">
+                                <i class="fa-solid fa-minus text-xs"></i>
+                                <span>− DEDUCT STOCK</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="scan-product-not-found" class="hidden text-center py-2 space-y-2">
+                        <p class="text-xs text-rose-600 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No product matches this barcode/tag.</p>
+                        <button id="scan-act-create" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs">
+                            + Create New Product with Code
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs shrink-0">
+                <span class="text-slate-400 text-[11px] font-mono" id="scanner-status-text">Ready to scan</span>
+                <button type="button" onclick="closeScannerModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 rounded-lg">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utility Functions
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatDateTime(ts) {
+            if (!ts) return '';
+            const d = new Date(ts);
+            return d.toLocaleString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            const bgColor = type === 'danger' ? 'bg-rose-600' : (type === 'warning' ? 'bg-amber-600' : 'bg-slate-900');
+            toast.className = `${bgColor} text-white text-xs sm:text-sm font-medium px-4 py-3 rounded-xl shadow-lg transition-all duration-300 transform translate-y-2 opacity-0 flex items-center justify-between space-x-3 pointer-events-auto`;
+            toast.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid ${type === 'danger' ? 'fa-circle-xmark' : (type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-check')}"></i>
+                    <span>${escapeHtml(message)}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white ml-2"><i class="fa-solid fa-xmark"></i></button>
+            `;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // Navigation Tab Switcher
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const target = document.getElementById(`tab-${tabName}`);
+            if (target) target.classList.remove('hidden');
+
+            ['inventory', 'activity', 'archived'].forEach(t => {
+                const btn = document.getElementById(`nav-btn-${t}`);
+                const mobileBtn = document.getElementById(`mobile-nav-${t}`);
+                if (t === tabName) {
+                    if (btn) btn.className = "px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white text-slate-900";
+                    if (mobileBtn) mobileBtn.className = "flex flex-col items-center py-1 px-3 text-slate-900 font-semibold";
+                } else {
+                    if (btn) btn.className = "px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:text-slate-900 transition-all";
+                    if (mobileBtn) mobileBtn.className = "flex flex-col items-center py-1 px-3 text-slate-400 hover:text-slate-700";
+                }
+            });
+
+            if (tabName === 'inventory') window.renderInventory();
+            if (tabName === 'activity') window.renderGlobalActivityLog();
+            if (tabName === 'archived') window.renderArchived();
+        }
+
+        // Render Functions
+        window.renderInventory = function() {
+            const container = document.getElementById('products-list-container');
+            const emptyState = document.getElementById('inventory-empty-state');
+            const searchInput = document.getElementById('inventory-search');
+            const clearBtn = document.getElementById('clear-search-btn');
+            const countLabel = document.getElementById('product-count-label');
+
+            if (!container) return;
+
+            const query = (searchInput?.value || '').trim().toLowerCase();
+            if (clearBtn) {
+                if (query) clearBtn.classList.remove('hidden');
+                else clearBtn.classList.add('hidden');
+            }
+
+            const activeProducts = window.appState.products.filter(p => !p.isArchived);
+
+            let filtered = activeProducts;
+            if (query) {
+                filtered = activeProducts.filter(p => 
+                    p.code.toLowerCase().includes(query) || 
+                    p.name.toLowerCase().includes(query) ||
+                    (p.barcode && p.barcode.toLowerCase().includes(query))
+                );
+            }
+
+            const totalProducts = activeProducts.length;
+            const totalUnits = activeProducts.reduce((sum, p) => sum + (p.stock || 0), 0);
+            const lowStockCount = activeProducts.filter(p => p.stock <= 2).length;
+
+            const statTotalProd = document.getElementById('stat-total-products');
+            const statTotalUnits = document.getElementById('stat-total-units');
+            const statLowStock = document.getElementById('stat-low-stock');
+
+            if (statTotalProd) statTotalProd.textContent = totalProducts;
+            if (statTotalUnits) statTotalUnits.textContent = totalUnits;
+            if (statLowStock) statLowStock.textContent = lowStockCount;
+
+            if (countLabel) countLabel.textContent = `${filtered.length} of ${totalProducts} products`;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                return;
+            }
+
+            if (emptyState) emptyState.classList.add('hidden');
+
+            container.innerHTML = filtered.map(product => {
+                let stockBadge = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                let stockText = 'In Stock';
+                if (product.stock === 0) {
+                    stockBadge = 'bg-rose-100 text-rose-800 border-rose-200';
+                    stockText = 'Out of Stock';
+                } else if (product.stock <= 2) {
+                    stockBadge = 'bg-amber-100 text-amber-800 border-amber-200';
+                    stockText = 'Low Stock';
+                }
+
+                return `
+                    <div onclick="openProductDetail('${product.id}')" class="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-mono text-xs font-bold bg-slate-900 text-white px-2.5 py-0.5 rounded tracking-wider">${escapeHtml(product.code)}</span>
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full border ${stockBadge}">${stockText}</span>
+                                ${product.barcode ? `<span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded"><i class="fa-solid fa-barcode text-[9px] mr-1"></i>${escapeHtml(product.barcode)}</span>` : ''}
+                            </div>
+                            <h3 class="font-bold text-slate-900 text-base leading-snug">${escapeHtml(product.name)}</h3>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end space-x-3 pt-2 sm:pt-0 border-t sm:border-0 border-slate-100">
+                            <div class="text-left sm:text-right">
+                                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Current Stock</span>
+                                <span class="text-2xl font-extrabold text-slate-900">${product.stock}</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5" onclick="event.stopPropagation()">
+                                <button onclick="openAddStockModal('${product.id}')" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-200 transition-colors flex items-center">
+                                    <i class="fa-solid fa-plus mr-1"></i> Add
+                                </button>
+                                <button onclick="openDeductStockModal('${product.id}')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors flex items-center">
+                                    <i class="fa-solid fa-minus mr-1"></i> Deduct
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        function clearSearch() {
+            const input = document.getElementById('inventory-search');
+            if (input) input.value = '';
+            window.renderInventory();
+        }
+
+        window.renderGlobalActivityLog = function() {
+            const container = document.getElementById('global-activity-container');
+            const emptyState = document.getElementById('activity-empty-state');
+            if (!container) return;
+
+            const query = (document.getElementById('activity-search')?.value || '').trim().toLowerCase();
+
+            let logs = window.appState.logs;
+
+            if (query) {
+                logs = logs.filter(l => {
+                    const prod = window.appState.products.find(p => p.id === l.productId);
+                    const isArchived = prod ? prod.isArchived : false;
+                    return l.productCode.toLowerCase().includes(query) || 
+                        l.productName.toLowerCase().includes(query) ||
+                        (l.reason && l.reason.toLowerCase().includes(query)) ||
+                        (l.action && l.action.toLowerCase().includes(query)) ||
+                        (isArchived && "archived".includes(query));
+                });
+            }
+
+            if (logs.length === 0) {
+                container.innerHTML = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                return;
+            }
+
+            if (emptyState) emptyState.classList.add('hidden');
+
+            container.innerHTML = logs.map(log => {
+                const prod = window.appState.products.find(p => p.id === log.productId);
+                const isCurrentlyArchived = prod ? prod.isArchived : false;
+                const isDeleted = !prod;
+
+                const isAdd = log.qtyChanged > 0;
+                const isDeduct = log.qtyChanged < 0;
+                
+                let badgeClass = 'bg-slate-100 text-slate-800 border-slate-200';
+                if (log.action === 'ARCHIVED') {
+                    badgeClass = 'bg-amber-100 text-amber-900 border-amber-200';
+                } else if (log.action === 'RESTORED') {
+                    badgeClass = 'bg-indigo-100 text-indigo-900 border-indigo-200';
+                } else if (log.action === 'DELETED') {
+                    badgeClass = 'bg-rose-100 text-rose-900 border-rose-200';
+                } else if (isAdd) {
+                    badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                } else if (isDeduct) {
+                    badgeClass = 'bg-rose-100 text-rose-800 border-rose-200';
+                }
+
+                let sign = isAdd ? '+' : '';
+                let qtyDisplay = (log.action === 'ARCHIVED' || log.action === 'RESTORED' || log.action === 'DELETED') ? '—' : `${sign}${log.qtyChanged}`;
+                let qtyColor = isAdd ? 'text-emerald-600' : (isDeduct ? 'text-rose-600' : 'text-slate-500');
+
+                return `
+                    <div onclick="openProductDetail('${log.productId}')" class="p-4 hover:bg-slate-50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 group">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2 flex-wrap gap-y-1">
+                                <span class="text-[11px] font-semibold px-2 py-0.5 rounded border ${badgeClass}">
+                                    ${log.action}
+                                </span>
+                                <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">${escapeHtml(log.productCode)}</span>
+                                ${isCurrentlyArchived ? `<span class="text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded"><i class="fa-solid fa-box-archive mr-1"></i>Archived</span>` : ''}
+                                ${isDeleted ? `<span class="text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 px-1.5 py-0.5 rounded"><i class="fa-solid fa-trash mr-1"></i>Deleted</span>` : ''}
+                                <span class="text-xs text-slate-400">• ${formatDateTime(log.timestamp)}</span>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-900 group-hover:text-slate-600 transition-colors">${escapeHtml(log.productName)}</p>
+                            ${log.reason ? `<p class="text-xs text-slate-500 italic"><i class="fa-solid fa-note-sticky text-slate-400 mr-1"></i>"${escapeHtml(log.reason)}"</p>` : ''}
+                        </div>
+
+                        <div class="flex items-center space-x-3 sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-0 border-slate-100">
+                            <div>
+                                <span class="text-xs text-slate-400 block">Stock Level</span>
+                                <span class="text-xs font-mono font-medium text-slate-500">${log.prevStock} → <strong class="text-slate-900">${log.newStock}</strong></span>
+                            </div>
+                            <div class="text-base font-extrabold ${qtyColor} min-w-12 text-right">
+                                ${qtyDisplay}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        window.renderArchived = function() {
+            const container = document.getElementById('archived-list-container');
+            const emptyState = document.getElementById('archived-empty-state');
+            if (!container) return;
+
+            const archived = window.appState.products.filter(p => p.isArchived);
+
+            if (archived.length === 0) {
+                container.innerHTML = '';
+                if (emptyState) emptyState.classList.remove('hidden');
+                return;
+            }
+
+            if (emptyState) emptyState.classList.add('hidden');
+
+            container.innerHTML = archived.map(product => `
+                <div class="bg-white rounded-xl border border-slate-200 p-4 flex items-center justify-between">
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-mono text-xs font-bold bg-slate-200 text-slate-700 px-2 py-0.5 rounded">${escapeHtml(product.code)}</span>
+                            <span class="text-xs text-slate-400 font-semibold">Archived</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm mt-1">${escapeHtml(product.name)}</h4>
+                        <span class="text-xs text-slate-500">Stock level saved: ${product.stock} units</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="openProductDetail('${product.id}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold">
+                            <i class="fa-solid fa-eye mr-1"></i> View Details
+                        </button>
+                        <button onclick="restoreProduct('${product.id}')" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg text-xs font-semibold border border-emerald-200">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Restore
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        window.renderAll = function() {
+            window.renderInventory();
+            window.renderGlobalActivityLog();
+            window.renderArchived();
+        };
+
+        function openModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+
+        function openCreateProductModal() {
+            document.getElementById('create-code').value = '';
+            document.getElementById('create-name').value = '';
+            document.getElementById('create-stock').value = '0';
+            const barcodeInput = document.getElementById('create-barcode');
+            if (barcodeInput) barcodeInput.value = '';
+            openModal('modal-create-product');
+            setTimeout(() => {
+                const input = document.getElementById('create-code');
+                if (input) input.focus();
+            }, 50);
+        }
+
+        async function handleCreateProduct(e) {
+            e.preventDefault();
+            const codeInput = document.getElementById('create-code');
+            const nameInput = document.getElementById('create-name');
+            const barcodeInput = document.getElementById('create-barcode');
+            const stockInput = document.getElementById('create-stock');
+
+            const code = codeInput.value.trim().toUpperCase();
+            const name = nameInput.value.trim();
+            const barcode = barcodeInput ? barcodeInput.value.trim() : '';
+            const stock = parseInt(stockInput.value, 10) || 0;
+
+            if (!code || !name) {
+                showToast("Product Code and Product Name are required.", "danger");
+                return;
+            }
+
+            const exists = window.appState.products.some(p => p.code.toLowerCase() === code.toLowerCase());
+            if (exists) {
+                showToast(`Product Code "${code}" already exists! Must be unique.`, "danger");
+                return;
+            }
+
+            const productId = 'prod_' + Date.now();
+            const newProduct = {
+                id: productId,
+                code: code,
+                barcode: barcode,
+                name: name,
+                stock: stock,
+                isArchived: false,
+                createdAt: Date.now()
+            };
+
+            const logEntry = {
+                id: 'log_' + Date.now(),
+                productId: productId,
+                productCode: code,
+                productName: name,
+                action: 'INITIAL STOCK',
+                qtyChanged: stock,
+                prevStock: 0,
+                newStock: stock,
+                reason: 'Initial creation',
+                timestamp: Date.now()
+            };
+
+            closeModal('modal-create-product');
+
+            try {
+                await window.dbOperations.saveProduct(newProduct);
+                await window.dbOperations.createLog(logEntry);
+                showToast(`Product ${code} created successfully!`);
+            } catch(err) {
+                console.error("Error creating product:", err);
+                showToast("Error saving product.", "danger");
+            }
+        }
+
+        function openAddStockModal(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            document.getElementById('add-stock-product-id').value = productId;
+            document.getElementById('add-modal-subtitle').textContent = `${product.code} • ${product.name}`;
+            document.getElementById('add-modal-current-stock').textContent = product.stock;
+            document.getElementById('add-stock-qty').value = '';
+            document.getElementById('add-stock-reason').value = '';
+            document.getElementById('add-modal-new-stock').textContent = product.stock;
+
+            openModal('modal-add-stock');
+            setTimeout(() => document.getElementById('add-stock-qty').focus(), 100);
+        }
+
+        function calculateAddStockPreview() {
+            const productId = document.getElementById('add-stock-product-id').value;
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            const addQty = parseInt(document.getElementById('add-stock-qty').value, 10) || 0;
+            const newStock = product.stock + Math.max(0, addQty);
+            document.getElementById('add-modal-new-stock').textContent = newStock;
+        }
+
+        function setAddReason(reason) {
+            document.getElementById('add-stock-reason').value = reason;
+        }
+
+        async function handleAddStockSubmit(e) {
+            e.preventDefault();
+            const productId = document.getElementById('add-stock-product-id').value;
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            const qtyToAdd = parseInt(document.getElementById('add-stock-qty').value, 10);
+            if (!qtyToAdd || qtyToAdd <= 0) {
+                showToast("Please enter a valid stock quantity to add.", "danger");
+                return;
+            }
+
+            const reason = document.getElementById('add-stock-reason').value.trim();
+            const prevStock = product.stock;
+            const newStock = prevStock + qtyToAdd;
+
+            await window.dbOperations.updateProduct(productId, { stock: newStock });
+
+            const logEntry = {
+                id: 'log_' + Date.now(),
+                productId: product.id,
+                productCode: product.code,
+                productName: product.name,
+                action: 'STOCK IN',
+                qtyChanged: qtyToAdd,
+                prevStock: prevStock,
+                newStock: newStock,
+                reason: reason || 'Stock addition',
+                timestamp: Date.now()
+            };
+            await window.dbOperations.createLog(logEntry);
+
+            closeModal('modal-add-stock');
+            if (!document.getElementById('modal-product-detail').classList.contains('hidden')) {
+                openProductDetail(productId);
+            }
+            showToast(`Added +${qtyToAdd} units to ${product.code}. New stock: ${newStock}`);
+        }
+
+        function openDeductStockModal(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            document.getElementById('deduct-stock-product-id').value = productId;
+            document.getElementById('deduct-modal-subtitle').textContent = `${product.code} • ${product.name}`;
+            document.getElementById('deduct-modal-current-stock').textContent = product.stock;
+            document.getElementById('deduct-stock-qty').value = '';
+            document.getElementById('deduct-stock-reason').value = '';
+            
+            document.getElementById('deduct-warning-msg').classList.add('hidden');
+            document.getElementById('deduct-submit-btn').disabled = false;
+            document.getElementById('deduct-modal-new-stock').textContent = product.stock;
+
+            openModal('modal-deduct-stock');
+            setTimeout(() => document.getElementById('deduct-stock-qty').focus(), 100);
+        }
+
+        function calculateDeductStockPreview() {
+            const productId = document.getElementById('deduct-stock-product-id').value;
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            const deductQty = parseInt(document.getElementById('deduct-stock-qty').value, 10) || 0;
+            const warningBox = document.getElementById('deduct-warning-msg');
+            const warningText = document.getElementById('deduct-warning-text');
+            const submitBtn = document.getElementById('deduct-submit-btn');
+            const newStockSpan = document.getElementById('deduct-modal-new-stock');
+
+            // Negative Stock Protection Guard
+            if (deductQty > product.stock) {
+                warningText.textContent = `Cannot deduct ${deductQty} units. Only ${product.stock} unit${product.stock === 1 ? '' : 's'} currently available.`;
+                warningBox.classList.remove('hidden');
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                newStockSpan.textContent = 'Invalid';
+                newStockSpan.className = 'text-lg font-extrabold text-rose-600';
+            } else {
+                warningBox.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                const newStock = product.stock - deductQty;
+                newStockSpan.textContent = newStock;
+                newStockSpan.className = 'text-lg font-extrabold text-slate-900';
+            }
+        }
+
+        function setDeductReason(reason) {
+            document.getElementById('deduct-stock-reason').value = reason;
+        }
+
+        async function handleDeductStockSubmit(e) {
+            e.preventDefault();
+            const productId = document.getElementById('deduct-stock-product-id').value;
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            const qtyToDeduct = parseInt(document.getElementById('deduct-stock-qty').value, 10);
+            
+            if (!qtyToDeduct || qtyToDeduct <= 0) {
+                showToast("Please enter a valid stock quantity to deduct.", "danger");
+                return;
+            }
+
+            if (qtyToDeduct > product.stock) {
+                showToast(`Cannot deduct ${qtyToDeduct} units. Only ${product.stock} available.`, "danger");
+                return;
+            }
+
+            const reason = document.getElementById('deduct-stock-reason').value.trim();
+            const prevStock = product.stock;
+            const newStock = prevStock - qtyToDeduct;
+
+            await window.dbOperations.updateProduct(productId, { stock: newStock });
+
+            const logEntry = {
+                id: 'log_' + Date.now(),
+                productId: product.id,
+                productCode: product.code,
+                productName: product.name,
+                action: 'STOCK OUT',
+                qtyChanged: -qtyToDeduct,
+                prevStock: prevStock,
+                newStock: newStock,
+                reason: reason || 'Stock deduction',
+                timestamp: Date.now()
+            };
+            await window.dbOperations.createLog(logEntry);
+
+            closeModal('modal-deduct-stock');
+            if (!document.getElementById('modal-product-detail').classList.contains('hidden')) {
+                openProductDetail(productId);
+            }
+            showToast(`Deducted -${qtyToDeduct} units from ${product.code}. New stock: ${newStock}`);
+        }
+
+        function openProductDetail(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) {
+                showToast("This product has been deleted.", "warning");
+                return;
+            }
+
+            document.getElementById('detail-code-badge').textContent = product.code;
+            document.getElementById('detail-product-name').textContent = product.name;
+            document.getElementById('detail-current-stock').textContent = product.stock;
+
+            const badge = document.getElementById('detail-status-badge');
+            const archiveBtn = document.getElementById('detail-btn-archive');
+            const deleteBtn = document.getElementById('detail-btn-delete');
+
+            if (product.isArchived) {
+                badge.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200";
+                badge.textContent = "Archived";
+                if (archiveBtn) {
+                    archiveBtn.innerHTML = `<i class="fa-solid fa-rotate-left mr-1.5"></i> Restore Product`;
+                    archiveBtn.className = "text-xs font-semibold text-emerald-700 hover:text-emerald-900 border border-emerald-200 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors flex items-center";
+                    archiveBtn.onclick = () => restoreProduct(product.id);
+                }
+            } else {
+                if (archiveBtn) {
+                    archiveBtn.innerHTML = `<i class="fa-solid fa-box-archive mr-1.5"></i> Archive Product`;
+                    archiveBtn.className = "text-xs font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors flex items-center";
+                    archiveBtn.onclick = () => archiveProduct(product.id);
+                }
+                if (product.stock === 0) {
+                    badge.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800";
+                    badge.textContent = "Out of Stock";
+                } else if (product.stock <= 2) {
+                    badge.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+                    badge.textContent = "Low Stock";
+                } else {
+                    badge.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
+                    badge.textContent = "In Stock";
+                }
+            }
+
+            if (deleteBtn) {
+                deleteBtn.onclick = () => deleteProduct(product.id);
+            }
+
+            document.getElementById('detail-btn-add').onclick = () => openAddStockModal(product.id);
+            document.getElementById('detail-btn-deduct').onclick = () => openDeductStockModal(product.id);
+            document.getElementById('detail-btn-edit').onclick = () => openEditProductModal(product.id);
+
+            const productLogs = window.appState.logs.filter(l => l.productId === product.id);
+            const activityContainer = document.getElementById('detail-activity-list');
+
+            if (productLogs.length === 0) {
+                activityContainer.innerHTML = '<p class="text-xs text-slate-400 py-2">No activity recorded for this product yet.</p>';
+            } else {
+                activityContainer.innerHTML = productLogs.map(log => {
+                    const isAdd = log.qtyChanged > 0;
+                    const isDeduct = log.qtyChanged < 0;
+                    let actionColor = isAdd ? 'text-emerald-700' : (isDeduct ? 'text-rose-700' : 'text-amber-700');
+                    let qtyStr = (log.action === 'ARCHIVED' || log.action === 'RESTORED') ? '' : ` (${isAdd ? '+' : ''}${log.qtyChanged})`;
+
+                    return `
+                        <div class="relative pb-3">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-bold ${actionColor}">
+                                    ${log.action}${qtyStr}
+                                </span>
+                                <span class="text-slate-400 font-mono text-[11px]">${formatDateTime(log.timestamp)}</span>
+                            </div>
+                            <div class="text-xs text-slate-600 mt-0.5 flex justify-between">
+                                <span>Stock: ${log.prevStock} → <strong>${log.newStock}</strong></span>
+                                ${log.reason ? `<span class="italic text-slate-500">Note: ${escapeHtml(log.reason)}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            openModal('modal-product-detail');
+        }
+
+        function openEditProductModal(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            document.getElementById('edit-product-id').value = product.id;
+            document.getElementById('edit-code').value = product.code;
+            document.getElementById('edit-name').value = product.name;
+            const barcodeInput = document.getElementById('edit-barcode');
+            if (barcodeInput) barcodeInput.value = product.barcode || '';
+
+            openModal('modal-edit-product');
+        }
+
+        async function handleEditProductSubmit(e) {
+            e.preventDefault();
+            const productId = document.getElementById('edit-product-id').value;
+            const newCode = document.getElementById('edit-code').value.trim().toUpperCase();
+            const newName = document.getElementById('edit-name').value.trim();
+            const barcodeInput = document.getElementById('edit-barcode');
+            const newBarcode = barcodeInput ? barcodeInput.value.trim() : '';
+
+            if (!newCode || !newName) {
+                showToast("Code and Name cannot be empty.", "danger");
+                return;
+            }
+
+            const conflict = window.appState.products.some(p => p.id !== productId && p.code.toLowerCase() === newCode.toLowerCase());
+            if (conflict) {
+                showToast(`Product Code "${newCode}" is already taken by another product.`, "danger");
+                return;
+            }
+
+            await window.dbOperations.updateProduct(productId, {
+                code: newCode,
+                name: newName,
+                barcode: newBarcode
+            });
+
+            closeModal('modal-edit-product');
+            openProductDetail(productId);
+            showToast("Product updated successfully.");
+        }
+
+        let pendingArchiveProductId = null;
+
+        function archiveProduct(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            pendingArchiveProductId = productId;
+            document.getElementById('archive-confirm-text').textContent = `Archive "${product.name}" (${product.code})? It will be hidden from active inventory, but stock movement history will remain completely preserved.`;
+            openModal('modal-confirm-archive');
+        }
+
+        async function confirmArchiveProduct() {
+            if (!pendingArchiveProductId) return;
+            const productId = pendingArchiveProductId;
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            try {
+                await window.dbOperations.updateProduct(productId, { isArchived: true });
+
+                const logEntry = {
+                    id: 'log_' + Date.now(),
+                    productId: product.id,
+                    productCode: product.code,
+                    productName: product.name,
+                    action: 'ARCHIVED',
+                    qtyChanged: 0,
+                    prevStock: product.stock,
+                    newStock: product.stock,
+                    reason: 'Product archived',
+                    timestamp: Date.now()
+                };
+                await window.dbOperations.createLog(logEntry);
+
+                closeModal('modal-confirm-archive');
+                closeModal('modal-product-detail');
+                showToast(`Archived ${product.code}. Activity logged.`);
+            } catch(err) {
+                console.error(err);
+                showToast("Error archiving product.", "danger");
+            } finally {
+                pendingArchiveProductId = null;
+            }
+        }
+
+        let pendingDeleteProductId = null;
+
+        function deleteProduct(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            pendingDeleteProductId = productId;
+            document.getElementById('delete-confirm-text').textContent = `Are you sure you want to permanently delete "${product.name}" (${product.code})? This will remove the item from inventory. Historical logs will remain preserved in the Activity Log.`;
+            openModal('modal-confirm-delete');
+        }
+
+        async function confirmDeleteProduct() {
+            if (!pendingDeleteProductId) return;
+            const productId = pendingDeleteProductId;
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            try {
+                const logEntry = {
+                    id: 'log_' + Date.now(),
+                    productId: product.id,
+                    productCode: product.code,
+                    productName: product.name,
+                    action: 'DELETED',
+                    qtyChanged: 0,
+                    prevStock: product.stock,
+                    newStock: product.stock,
+                    reason: 'Product deleted permanently',
+                    timestamp: Date.now()
+                };
+                await window.dbOperations.createLog(logEntry);
+                await window.dbOperations.deleteProduct(productId);
+
+                closeModal('modal-confirm-delete');
+                closeModal('modal-product-detail');
+                showToast(`Deleted ${product.code} permanently.`);
+            } catch(err) {
+                console.error(err);
+                showToast("Error deleting product.", "danger");
+            } finally {
+                pendingDeleteProductId = null;
+            }
+        }
+
+        async function restoreProduct(productId) {
+            const product = window.appState.products.find(p => p.id === productId);
+            if (!product) return;
+
+            await window.dbOperations.updateProduct(productId, { isArchived: false });
+
+            const logEntry = {
+                id: 'log_' + Date.now(),
+                productId: product.id,
+                productCode: product.code,
+                productName: product.name,
+                action: 'RESTORED',
+                qtyChanged: 0,
+                prevStock: product.stock,
+                newStock: product.stock,
+                reason: 'Product restored from archive',
+                timestamp: Date.now()
+            };
+            await window.dbOperations.createLog(logEntry);
+
+            if (!document.getElementById('modal-product-detail').classList.contains('hidden')) {
+                openProductDetail(productId);
+            }
+
+            showToast(`Product ${product.code} restored to active inventory.`);
+        }
+
+        function getFormattedBackupFilename() {
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yy = String(now.getFullYear()).slice(-2);
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            return `${dd}-${mm}-${yy}_${hh}-${min}.db`;
+        }
+
+        function exportToExcel() {
+            const products = window.appState.products || [];
+            const logs = window.appState.logs || [];
+
+            if (products.length === 0) {
+                showToast("No products available to export.", "warning");
+                return;
+            }
+
+            const headers = ["Product Code", "Product Name", "Current Stock", "Total Added Stock", "Total Deducted Stock", "Status"];
+
+            const rows = products.map(product => {
+                const prodLogs = logs.filter(l => l.productId === product.id);
+                
+                const totalAdded = prodLogs
+                    .filter(l => l.qtyChanged > 0)
+                    .reduce((sum, l) => sum + (l.qtyChanged || 0), 0);
+                    
+                const totalDeducted = prodLogs
+                    .filter(l => l.qtyChanged < 0)
+                    .reduce((sum, l) => sum + Math.abs(l.qtyChanged || 0), 0);
+
+                let status = 'In Stock';
+                if (product.isArchived) {
+                    status = 'Archived';
+                } else if (product.stock === 0) {
+                    status = 'Out of Stock';
+                } else if (product.stock <= 2) {
+                    status = 'Low Stock';
+                }
+
+                return [
+                    `"${(product.code || '').replace(/"/g, '""')}"`,
+                    `"${(product.name || '').replace(/"/g, '""')}"`,
+                    product.stock || 0,
+                    totalAdded,
+                    totalDeducted,
+                    `"${status}"`
+                ];
+            });
+
+            // Standard UTF-8 BOM preamble so Microsoft Excel renders formatting without encoding issues
+            const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yyyy = now.getFullYear();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+
+            const filename = `stock as on ${dd}-${mm}-${yyyy}_${hh}-${min}.csv`;
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`Exported stock report: ${filename}`);
+        }
+
+        function openBackupModal() {
+            const filename = getFormattedBackupFilename();
+            const previewEl = document.getElementById('backup-filename-preview');
+            if (previewEl) previewEl.textContent = `Target filename: ${filename}`;
+            openModal('modal-backup');
+        }
+
+        function exportBackup() {
+            const data = {
+                app: "CLICKWORTHY BY DTC - Inventory",
+                exportedAt: new Date().toISOString(),
+                products: window.appState.products,
+                logs: window.appState.logs
+            };
+            
+            const jsonStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const filename = getFormattedBackupFilename();
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast(`Exported backup as ${filename}`);
+            closeModal('modal-backup');
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!importedData || !Array.isArray(importedData.products) || !Array.isArray(importedData.logs)) {
+                        showToast("Invalid backup file format. Must contain products and logs.", "danger");
+                        return;
+                    }
+
+                    window.appState.products = importedData.products;
+                    window.appState.logs = importedData.logs;
+
+                    if (window.dbOperations) {
+                        for (let p of importedData.products) {
+                            await window.dbOperations.saveProduct(p);
+                        }
+                        for (let l of importedData.logs) {
+                            await window.dbOperations.createLog(l);
+                        }
+                    }
+
+                    window.renderAll();
+                    closeModal('modal-backup');
+                    showToast(`Backup restored! (${importedData.products.length} products loaded)`);
+                    event.target.value = '';
+                } catch(err) {
+                    console.error("Error importing backup file:", err);
+                    showToast("Failed to parse backup file. Please select a valid .db file.", "danger");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        let html5QrcodeScanner = null;
+        let scannerTargetInputId = null;
+
+        function openScannerModal() {
+            scannerTargetInputId = null;
+            document.getElementById('scan-result-card').classList.add('hidden');
+            switchScannerTab('camera');
+            openModal('modal-scanner');
+        }
+
+        function openScannerForInput(targetInputId) {
+            scannerTargetInputId = targetInputId;
+            document.getElementById('scan-result-card').classList.add('hidden');
+            switchScannerTab('camera');
+            openModal('modal-scanner');
+        }
+
+        function closeScannerModal() {
+            stopCameraScanner();
+            closeModal('modal-scanner');
+        }
+
+        function switchScannerTab(tab) {
+            ['camera', 'tag', 'upload'].forEach(t => {
+                const btn = document.getElementById(`scan-tab-${t}`);
+                const view = document.getElementById(`scanner-view-${t}`);
+                if (t === tab) {
+                    if (btn) btn.className = "flex-1 py-1.5 rounded-lg bg-white text-slate-900 shadow-2xs transition-all flex items-center justify-center space-x-1.5 font-bold";
+                    if (view) view.classList.remove('hidden');
+                } else {
+                    if (btn) btn.className = "flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center space-x-1.5";
+                    if (view) view.classList.add('hidden');
+                }
+            });
+
+            if (tab === 'camera') {
+                startCameraScanner();
+            } else {
+                stopCameraScanner();
+            }
+        }
+
+        function startCameraScanner() {
+            const overlay = document.getElementById('scanner-status-overlay');
+            const statusText = document.getElementById('scanner-status-text');
+
+            if (html5QrcodeScanner) {
+                stopCameraScanner();
+            }
+
+            html5QrcodeScanner = new Html5Qrcode("qr-reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 180 } };
+
+            html5QrcodeScanner.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText) => {
+                    handleScanResult(decodedText);
+                },
+                (errorMessage) => {}
+            ).then(() => {
+                if (overlay) overlay.classList.add('hidden');
+                if (statusText) statusText.textContent = "Camera active - scanning...";
+            }).catch(err => {
+                console.warn("Camera error:", err);
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    overlay.innerHTML = `<p class="text-xs text-rose-300"><i class="fa-solid fa-circle-exclamation mr-1"></i>Camera permission denied or unavailable.</p>`;
+                }
+                if (statusText) statusText.textContent = "Camera unavailable";
+            });
+        }
+
+        function stopCameraScanner() {
+            if (html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.stop().catch(() => {});
+                } catch(e) {}
+                html5QrcodeScanner = null;
+            }
+            const overlay = document.getElementById('scanner-status-overlay');
+            if (overlay) overlay.classList.remove('hidden');
+        }
+
+        function handleScanResult(scannedText) {
+            const cleanText = scannedText.trim();
+            if (!cleanText) return;
+
+            if (scannerTargetInputId) {
+                const targetEl = document.getElementById(scannerTargetInputId);
+                if (targetEl) targetEl.value = cleanText;
+                showToast(`Scanned: ${cleanText}`);
+                closeScannerModal();
+                return;
+            }
+
+            const products = window.appState.products.filter(p => !p.isArchived);
+            const matched = products.find(p => 
+                (p.barcode && p.barcode.toLowerCase() === cleanText.toLowerCase()) ||
+                p.code.toLowerCase() === cleanText.toLowerCase() ||
+                p.name.toLowerCase().includes(cleanText.toLowerCase())
+            );
+
+            document.getElementById('scan-raw-text').textContent = cleanText;
+            document.getElementById('scan-result-card').classList.remove('hidden');
+
+            const foundBox = document.getElementById('scan-product-found');
+            const notFoundBox = document.getElementById('scan-product-not-found');
+
+            if (matched) {
+                foundBox.classList.remove('hidden');
+                notFoundBox.classList.add('hidden');
+
+                document.getElementById('scan-prod-code').textContent = matched.code;
+                document.getElementById('scan-prod-name').textContent = matched.name;
+                document.getElementById('scan-prod-stock').textContent = matched.stock;
+
+                document.getElementById('scan-act-add').onclick = () => {
+                    closeScannerModal();
+                    openAddStockModal(matched.id);
+                };
+                document.getElementById('scan-act-deduct').onclick = () => {
+                    closeScannerModal();
+                    openDeductStockModal(matched.id);
+                };
+            } else {
+                foundBox.classList.add('hidden');
+                notFoundBox.classList.remove('hidden');
+
+                document.getElementById('scan-act-create').onclick = () => {
+                    closeScannerModal();
+                    openCreateProductModal();
+                    document.getElementById('create-code').value = cleanText.toUpperCase();
+                };
+            }
+        }
+
+        function processImageBarcode(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const html5QrCode = new Html5Qrcode("qr-reader");
+            html5QrCode.scanFile(file, true)
+                .then(decodedText => {
+                    handleScanResult(decodedText);
+                })
+                .catch(err => {
+                    showToast("No readable barcode found in image.", "danger");
+                });
+        }
+
+        function processTagOCR(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const loader = document.getElementById('ocr-loading');
+            if (loader) loader.classList.remove('hidden');
+
+            Tesseract.recognize(
+                file,
+                'eng'
+            ).then(({ data: { text } }) => {
+                if (loader) loader.classList.add('hidden');
+                
+                const words = text.split(/\s+/).map(w => w.trim().toUpperCase()).filter(w => w.length >= 3);
+                let matched = null;
+
+                for (let product of window.appState.products.filter(p => !p.isArchived)) {
+                    if (words.includes(product.code.toUpperCase()) || text.toLowerCase().includes(product.name.toLowerCase())) {
+                        matched = product;
+                        break;
+                    }
+                }
+
+                if (matched) {
+                    handleScanResult(matched.code);
+                } else if (words.length > 0) {
+                    handleScanResult(words[0]);
+                } else {
+                    showToast("Could not extract readable text from tag.", "danger");
+                }
+            }).catch(err => {
+                if (loader) loader.classList.add('hidden');
+                showToast("Failed to process tag image.", "danger");
+            });
+        }
+    </script>
+
+    <!-- Firebase Storage & DB Engine -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const INITIAL_SAMPLE_PRODUCTS = [
+            { id: 'prod_1', code: 'BAT-001', barcode: '8901234567890', name: 'Sony NP-FZ100 Battery', stock: 10, isArchived: false, createdAt: Date.now() - 86400000 * 3 },
+            { id: 'prod_2', code: 'CAM-001', barcode: '8901234567891', name: 'Sony A7 IV Camera Body', stock: 2, isArchived: false, createdAt: Date.now() - 86400000 * 2 },
+            { id: 'prod_3', code: 'WALKIE-001', barcode: '8901234567892', name: 'Motorola Walkie Talkie Set', stock: 8, isArchived: false, createdAt: Date.now() - 86400000 }
+        ];
+
+        const INITIAL_SAMPLE_LOGS = [
+            { id: 'log_1', productId: 'prod_1', productCode: 'BAT-001', productName: 'Sony NP-FZ100 Battery', action: 'INITIAL STOCK', qtyChanged: 10, prevStock: 0, newStock: 10, reason: 'Initial inventory creation', timestamp: Date.now() - 86400000 * 3 },
+            { id: 'log_2', productId: 'prod_2', productCode: 'CAM-001', productName: 'Sony A7 IV Camera Body', action: 'INITIAL STOCK', qtyChanged: 2, prevStock: 0, newStock: 2, reason: 'Initial inventory creation', timestamp: Date.now() - 86400000 * 2 },
+            { id: 'log_3', productId: 'prod_3', productCode: 'WALKIE-001', productName: 'Motorola Walkie Talkie Set', action: 'INITIAL STOCK', qtyChanged: 8, prevStock: 0, newStock: 8, reason: 'Initial inventory creation', timestamp: Date.now() - 86400000 }
+        ];
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'clickworthy-dtc-inventory';
+        let firebaseConfig = null;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch(e) {
+            console.warn("No valid Firebase config JSON supplied, using local memory mode.");
+        }
+
+        let db = null;
+        let auth = null;
+
+        async function initStorage() {
+            if (firebaseConfig && firebaseConfig.apiKey) {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    onAuthStateChanged(auth, (user) => {
+                        if (user && window.appState) {
+                            window.appState.currentUser = user;
+                            setupFirestoreListeners();
+                        }
+                    });
+                    return;
+                } catch(e) {
+                    console.error("Firebase initialization failed, using local backup mode:", e);
+                }
+            }
+            
+            loadLocalBackup();
+        }
+
+        function setupFirestoreListeners() {
+            const productsPath = collection(db, 'artifacts', appId, 'public', 'data', 'products');
+            const logsPath = collection(db, 'artifacts', appId, 'public', 'data', 'logs');
+
+            onSnapshot(productsPath, (snapshot) => {
+                if (snapshot.empty && window.appState.products.length === 0) {
+                    seedInitialFirestoreData();
+                    return;
+                }
+                const prods = [];
+                snapshot.forEach(doc => prods.push(doc.data()));
+                window.appState.products = prods.sort((a,b) => a.code.localeCompare(b.code));
+                window.appState.firestoreReady = true;
+                if (typeof window.renderAll === 'function') window.renderAll();
+            }, (error) => {
+                console.error("Products Firestore error:", error);
+                loadLocalBackup();
+            });
+
+            onSnapshot(logsPath, (snapshot) => {
+                const logs = [];
+                snapshot.forEach(doc => logs.push(doc.data()));
+                window.appState.logs = logs.sort((a,b) => b.timestamp - a.timestamp);
+                if (typeof window.renderAll === 'function') window.renderAll();
+            }, (error) => {
+                console.error("Logs Firestore error:", error);
+            });
+        }
+
+        async function seedInitialFirestoreData() {
+            try {
+                for (let p of INITIAL_SAMPLE_PRODUCTS) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', p.id), p);
+                }
+                for (let l of INITIAL_SAMPLE_LOGS) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', l.id), l);
+                }
+            } catch(e) {
+                console.error("Error seeding initial Firestore data:", e);
+            }
+        }
+
+        function loadLocalBackup() {
+            const savedProds = localStorage.getItem('clickworthy_products');
+            const savedLogs = localStorage.getItem('clickworthy_logs');
+            
+            if (savedProds) {
+                window.appState.products = JSON.parse(savedProds);
+            } else {
+                window.appState.products = INITIAL_SAMPLE_PRODUCTS;
+            }
+
+            if (savedLogs) {
+                window.appState.logs = JSON.parse(savedLogs);
+            } else {
+                window.appState.logs = INITIAL_SAMPLE_LOGS;
+            }
+            if (typeof window.renderAll === 'function') window.renderAll();
+        }
+
+        function saveLocalBackup() {
+            localStorage.setItem('clickworthy_products', JSON.stringify(window.appState.products));
+            localStorage.setItem('clickworthy_logs', JSON.stringify(window.appState.logs));
+        }
+
+        window.dbOperations = {
+            async saveProduct(product) {
+                if (db && window.appState.currentUser) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', product.id), product);
+                } else {
+                    const idx = window.appState.products.findIndex(p => p.id === product.id);
+                    if (idx >= 0) window.appState.products[idx] = product;
+                    else window.appState.products.push(product);
+                    saveLocalBackup();
+                    if (typeof window.renderAll === 'function') window.renderAll();
+                }
+            },
+            async updateProduct(productId, updates) {
+                const prod = window.appState.products.find(p => p.id === productId);
+                if (!prod) return;
+                Object.assign(prod, updates);
+
+                if (db && window.appState.currentUser) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', productId), updates);
+                } else {
+                    saveLocalBackup();
+                    if (typeof window.renderAll === 'function') window.renderAll();
+                }
+            },
+            async deleteProduct(productId) {
+                if (db && window.appState.currentUser) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', productId));
+                } else {
+                    window.appState.products = window.appState.products.filter(p => p.id !== productId);
+                    saveLocalBackup();
+                    if (typeof window.renderAll === 'function') window.renderAll();
+                }
+            },
+            async createLog(logEntry) {
+                if (db && window.appState.currentUser) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logEntry.id), logEntry);
+                } else {
+                    window.appState.logs.unshift(logEntry);
+                    saveLocalBackup();
+                    if (typeof window.renderAll === 'function') window.renderAll();
+                }
+            }
+        };
+
+        // Initialize application storage
+        initStorage();
+    </script>
+</body>
+</html>
